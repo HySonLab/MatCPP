@@ -1,0 +1,79 @@
+# Ignore build directories
+/build/
+/out/
+/bin/
+/lib/
+/dist/
+
+# Ignore CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Ignore Visual Studio/VSCode files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+.vscode/
+.vs/
+
+# Ignore Xcode files
+*.xcodeproj
+*.xcworkspace
+
+# Ignore compiled object files and executables
+*.o
+*.obj
+*.lo
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.out
+
+# Ignore log and temporary files
+*.log
+*.tmp
+*.swp
+*.DS_Store
+*.bak
+
+# Ignore by-products of debugging or profiling tools
+*.dSYM/
+*.pdb
+*.pdbt
+*.profraw
+*.gcda
+*.gcno
+*.gcov
+
+# Ignore custom user files
+*.user
+*.directory
+
+# Ignore generated docs
+/docs/doxygen-output/
+*.html
+*.pdf
+*.xml
+*.md5
+
+# Ignore archives
+*.tar
+*.gz
+*.zip
+*.7z
+*.rar
+
+# Ignore IDE-specific configuration files (JetBrains CLion, etc.)
+.idea/
+cmake-build-*/
+
+# Ignore system-specific files
+Thumbs.db
+desktop.ini
+build.ninja
