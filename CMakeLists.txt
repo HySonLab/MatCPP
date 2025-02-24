@@ -19,8 +19,5 @@ link_directories("C:\\Program Files\\IBM\\ILOG\\CPLEX_Studio1210\\concert\\lib\\
 add_executable(main main.cpp)
 target_link_libraries(main concert ilocplex cplex12100)
 
-add_executable(test_new_greedy test_new_greedy.cpp)
-
 # (Optional) Set C++ standard
 set_target_properties(main PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
-set_target_properties(test_new_greedy PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED YES)
