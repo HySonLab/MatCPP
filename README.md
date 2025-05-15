@@ -1,14 +1,14 @@
 # MatCPP: Efficient Matheuristics for Solving the Chinese Postman Problem with Load Constraints
 
 ## Contributors
-- Thieu-Khang Nguyen  
-- Truong-Son Hy  
-- Thu-Huong Dang  
+- Thieu-Khang Nguyen
+- Truong-Son Hy
+- Thu-Huong Dang
 
 ## Prerequisites
-- [CMake](https://cmake.org/download/) (version 3.10 or higher)  
-- [Visual Studio 2022](https://visualstudio.microsoft.com/vs/) with C++ development tools  
-- [IBM ILOG CPLEX Studio 12.10](https://www.ibm.com/products/ilog-cplex-optimization-studio)  
+- [CMake](https://cmake.org/download/) (version 3.10 or higher)
+- [Visual Studio 2022](https://visualstudio.microsoft.com/vs/) with C++ development tools
+- [IBM ILOG CPLEX Studio 12.10](https://www.ibm.com/products/ilog-cplex-optimization-studio)
 
 Ensure that CPLEX and Concert include and library directories are correctly set in the `CMakeLists.txt`.
 
@@ -31,9 +31,9 @@ Ensure that CPLEX and Concert include and library directories are correctly set 
     ```
 
 ## Running the Project
-    ```
-    ./build/Release/main.exe
-    ```
+```
+./build/Release/main.exe
+```
 
 ## Notes
 

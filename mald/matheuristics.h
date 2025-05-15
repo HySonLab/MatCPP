@@ -64,8 +64,8 @@ Solution convert_milp_solution_to_tour(const Network& network, const MILPSolutio
     return dp_sol;
 }
  
-MILPSolution block_operator(ArcRoutingFormulation model, const MILPSolution& milp_solution, int start, int block_size) {
-    auto network = model.get_network();
+MILPSolution block_operator(Network network, const MILPSolution& milp_solution, int start, int block_size) {
+    ArcRoutingFormulation model(network);
     int end = start + block_size;
     int m = network.deliver_edges.size();
     my_assert(start >= 0 && start < m, "Start index out of bounds. start: " + std::to_string(start) + " m = " + std::to_string(m));
@@ -80,42 +80,64 @@ MILPSolution block_operator(ArcRoutingFormulation model, const MILPSolution& mil
         model.fix_x(end % m, start - 2, milp_solution.x);
         model.fix_y(end % m, start - 1, milp_solution.y);
     }
-    model.limit_objective(milp_solution.objective - 1);
+    model.limit_objective(milp_solution.objective);
     return model.solve();
 }
 
 Solution matheuristics(const Network& network, Solution solution, int block_size, int iterations, int num_tries) {
     my_assert(0 < (int) network.deliver_edges.size(), "The number of delivery edges must be positive!");
-    ArcRoutingFormulation model(network);
+
     auto milp_values = convert_tour_to_milp_solution(solution); // Solution and milp values are always the same
     std::cout << "The number of edges is " << network.deliver_edges.size() << std::endl;
 
+    // Statistics for the solver
+    int num_sucesses = 0;
+    int num_run = 0;
+
     for (int i = 0; i < iterations; i++) {
-        // Do traditional heuristics optimizations
-        solution = find_best_reversal(network, solution);
+        auto start_time = std::chrono::high_resolution_clock::now();
         solution = multiple_shift_operator(network, solution);
+        auto end_time = std::chrono::high_resolution_clock::now();
+        std::cout << "multiple_shift_operator took " << std::chrono::duration<double>(end_time - start_time).count() << " seconds" << std::endl;
+
+        start_time = std::chrono::high_resolution_clock::now();
         solution = reorder_edges(network, solution);
+        end_time = std::chrono::high_resolution_clock::now();
+        std::cout << "reorder_edges took " << std::chrono::duration<double>(end_time - start_time).count() << " seconds" << std::endl;
+
+        start_time = std::chrono::high_resolution_clock::now();
         milp_values = convert_tour_to_milp_solution(solution);
+        end_time = std::chrono::high_resolution_clock::now();
+        std::cout << "convert_tour_to_milp_solution took " << std::chrono::duration<double>(end_time - start_time).count() << " seconds" << std::endl;
 
         for (int j = 0; j < num_tries; j++) {
-            // Do the block operator
-            auto start = get_random_int(network.deliver_edges.size());
-            std::cout << "Block chosen to be: [" << start << ", " << start + block_size << "]" << std::endl;
+            auto block_start = get_random_int(network.deliver_edges.size());
+            std::cout << "Block chosen to be: [" << block_start << ", " << block_start + block_size << "]" << std::endl;
             auto current_obj = milp_values.objective;
-            auto temp = block_operator(model, milp_values, start, block_size);
-            bool solvable = !temp.y.empty() && temp.objective < (current_obj - epsilon);
 
-            // Keep the results for the next iteration
+            start_time = std::chrono::high_resolution_clock::now();
+            auto temp = block_operator(network, milp_values, block_start, block_size);
+            end_time = std::chrono::high_resolution_clock::now();
+            std::cout << "block_operator took " << std::chrono::duration<double>(end_time - start_time).count() << " seconds" << std::endl;
+
+            bool solvable = !temp.y.empty() && temp.objective < (current_obj - epsilon);
+            num_run++;
+
             if (solvable) {
+                num_sucesses++;
                 std::cout << "There is improvement" << std::endl;
                 milp_values = temp;
+                start_time = std::chrono::high_resolution_clock::now();
                 solution = convert_milp_solution_to_tour(network, milp_values);
+                end_time = std::chrono::high_resolution_clock::now();
+                std::cout << "convert_milp_solution_to_tour took " << std::chrono::duration<double>(end_time - start_time).count() << " seconds" << std::endl;
                 break;
             }
             std::cout << "There is no improvement" << std::endl;
         }
-        model.clear_auxiliary_constraints();
     }
+
+    std::cout << "Number of successes / runs: " << num_sucesses << " / " << num_run << std::endl;
     return convert_milp_solution_to_tour(network, milp_values);
 }
 

@@ -70,6 +70,21 @@ bool is_graph_connected(const Network& network) {
     return visited.size() == network.vertices.size();
 }
 
+void check_depot_deliver(Network &network) {
+    bool depot_delivered = false;
+    for (const auto& edge : network.deliver_edges) {
+        if (edge.v == network.depot || edge.u == network.depot) {
+            depot_delivered = true;
+        }
+    }
+    if (!depot_delivered) {
+        // Add a dummy edge so that we do not break the formulation
+        Edge edge(network.depot, network.depot, 0, 0, network.edges.size());
+        network.deliver_edges.push_back(edge);
+        network.edges.push_back(edge);
+    }
+}
+
 Network read_network(std::string filename) {
     std::ifstream file;
     file.open(filename);
@@ -131,6 +146,7 @@ Network read_network(std::string filename) {
 
     my_assert(0 < (int) network.deliver_edges.size(), "The number of edges must be greater than 0.");
     my_assert(is_graph_connected(network), "The graph must be connected.");
+    check_depot_deliver(network);
  
     return network;
 }

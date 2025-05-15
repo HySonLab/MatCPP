@@ -12,38 +12,7 @@ struct MILPSolution {
     std::map<Vertex, std::map<Vertex, std::map<int, int> > > x, y;
 	Network network;
 	double objective{};
-};
-
-class ConstraintVerifier {
-public:
-	ConstraintVerifier() = default;
-	explicit ConstraintVerifier(const MILPSolution& milp) {
-		my_assert(verify_constraint_1(milp), "Constraint 1 violated");
-		my_assert(verify_constraint_2(milp), "Constraint 2 violated");
-	}
-private:
-	bool verify_constraint_1(MILPSolution milp) {
-		for (const auto& edge : milp.network.deliver_edges) {
-			auto u = edge.u, v = edge.v;
-			int sum = 0;
-			for (int k = 0; k < milp.network.deliver_edges.size(); k++) {
-				sum += milp.y[u][v][k] + milp.y[v][u][k];
-			}
-			if (sum != 1) return false;
-		}
-		return true;
-	}
-	bool verify_constraint_2(MILPSolution milp) {
-		for (int k = 0; k < milp.network.deliver_edges.size(); k++) {
-			int sum = 0;
-			for (const auto& edge : milp.network.deliver_edges) {
-				auto u = edge.u, v = edge.v;
-				sum += milp.y[u][v][k] + milp.y[v][u][k];
-			}
-			if (sum != 1) return false;
-		}
-		return true;
-	}
+	double lower_bound = std::numeric_limits<double>::infinity(); // A lower bound calculated with Branch-and-Bound
 };
 
 class ArcRoutingFormulation {
@@ -113,8 +82,10 @@ public:
 	}
 
 	void clear_auxiliary_constraints() {
+		std::cout << "Clearing " << auxiliary_constraints.getSize() <<" auxiliary constraints" << std::endl;
 		model.remove(auxiliary_constraints);
 		auxiliary_constraints = IloConstraintArray(env);
+		std::cout << "Now the size of auxiliary_constraints is " << auxiliary_constraints.getSize() << std::endl;
 	}
 
 	MILPSolution solve() {
@@ -122,9 +93,9 @@ public:
 		solver.extract(model);
         // Set the parameters
         solver.setParam(IloCplex::Param::Preprocessing::Symmetry, 0); // Disable symmetry detection
-        solver.setParam(IloCplex::Param::Emphasis::MIP, 4);           // Emphasize finding feasible solutions
-        solver.setParam(IloCplex::Param::TimeLimit, 10);             // Set time limit to 100 seconds
-        solver.setParam(IloCplex::Param::MIP::Limits::Solutions, 3);  // Limit to 3 feasible solutions
+        solver.setParam(IloCplex::Param::Emphasis::MIP, IloCplex::MIPEmphasisHiddenFeas);           // Emphasize finding feasible solutions
+        solver.setParam(IloCplex::Param::TimeLimit, 100);             // Set time limit to 100 seconds
+        solver.setParam(IloCplex::Param::MIP::Limits::Solutions, 3);  // Limit to 5 feasible solutions
 		// Supress console output from CPLEX solver
 		solver.setOut(env.getNullStream());
         solver.setWarning(env.getNullStream());
@@ -137,6 +108,7 @@ public:
 		MILPSolution solution;
 		solution.network = network;
 		solution.objective = solver.getObjValue();
+		solution.lower_bound = solver.getBestObjValue();
 		for (const auto& edge : network.edges) {
 			auto u = edge.u, v = edge.v;
 			if (solution.x.count(u) == 0) {solution.x[u] = {};}
@@ -194,6 +166,9 @@ private:
 		for (int i=1; i<network.deliver_edges.size(); i++) {
 			lower_bound_f[i] = lower_bound_f[i - 1] - loads[network.deliver_edges.size() - i];
 			upper_bound_f[i] = upper_bound_f[i - 1] - loads[i - 1];
+		}
+		for (int i=0; i<network.deliver_edges.size(); i++) {
+			my_assert(lower_bound_f[i] <= upper_bound_f[i], "lower_bound_f[i] > upper_bound_f[i]");
 		}
 	}
 
@@ -293,6 +268,7 @@ private:
 	}
 
 	void constraint1() {
+		// Every edge is served exactly once and in one direction among the K periods
 		for (const auto& edge : network.deliver_edges) {
 			auto u = edge.u, v = edge.v;
 			IloExpr expr(env);
@@ -304,6 +280,7 @@ private:
 	}
 
 	void constraint2() {
+		// For every period, there is only one edge being served and only in one direction
 		for (int k = 0; k < network.deliver_edges.size(); k++) {
 			IloExpr expr(env);
 			for (const auto& edge : network.deliver_edges) {
@@ -315,6 +292,8 @@ private:
 	}
 
 	void constraint3() {
+		// The load at the start of each period equals the load at the previous period
+		// subtracting the amount served during the previous period
 		for (int k = 0; k < network.deliver_edges.size() - 1; k++) {
 			IloExpr expr(env);
 			expr += f[k + 1] - f[k];
@@ -327,6 +306,7 @@ private:
 	}
 
 	void constraint4() {
+		// During the first period, in-degree equals out-degree for every vertex except the depot
 		for (int i = 1; i < network.vertices.size(); i++) {
 			IloExpr expr(env);
 			auto v = network.vertices[i];
@@ -337,7 +317,7 @@ private:
 				}
 				else if (edge.u == v) {
 					expr -= x[edge.v][edge.u][0];
-					expr += x[edge.u][edge.v][0];	
+					expr += x[edge.u][edge.v][0];
 				}
 			}
 			for (const auto& edge : network.deliver_edges) {
@@ -355,6 +335,7 @@ private:
 	}
 
 	void constraint5() {
+		// For every period after the first one, and for every vertices, in-degree equals out-degree
 		for (int k = 1; k < network.deliver_edges.size() - 1; k++) {
 			for (int i = 0; i < network.vertices.size(); i++) {
 				IloExpr expr(env);
@@ -385,6 +366,7 @@ private:
 	}
 
 	void constraint6() {
+		// The same equality constraints for the last period
 		int k = network.deliver_edges.size() - 1;
 		for (int i = 1; i < network.vertices.size(); i++) {
 			IloExpr expr(env);
@@ -412,7 +394,10 @@ private:
 			model.add(IloRange(env, 0, expr, 0));
 		}
 
+		// Constraints at the depot
 		IloExpr expr1(env);
+		bool expr1_empty = true; // Check if there are any delivery edge out from the depot
+
 		IloExpr expr2(env);
 		for (auto edge : network.edges) {
 			auto u = edge.u, v = edge.v;
@@ -426,19 +411,25 @@ private:
 		for (const auto& edge : network.deliver_edges) {
 			auto u = edge.u, v = edge.v;
 			if (network.depot == u) {
+				expr1_empty = false;
 				expr1 += y[u][v][0];
 				expr2 += y[v][u][k];
 			}
 			else if (network.depot == v) {
+				expr1_empty = false;
 				expr1 += y[v][u][0];
 				expr2 += y[u][v][k];
 			}
 		}
+		// This constraint is just a restriction so that we keep the same MILP formulation from the original paper
+		my_assert(!expr1_empty, "There should be at least one delivery edge coming out from the depot.");
 		model.add(IloRange(env, 1, expr1, 1));
 		model.add(IloRange(env, 1, expr2, 1));
 	}
 
 	void constraint7() {
+		// An edge being deadheaded if only it is served in a previous period
+		// or served in this period but opposite direction
 		for (const auto& edge : network.deliver_edges) {
 			for (int k = 0; k < network.deliver_edges.size(); k++) {
 				auto u = edge.u, v = edge.v;
@@ -465,6 +456,8 @@ private:
 	}
 
 	void constraint8() {
+		// For every period, each edge is deadheaded in one direction only.
+		// This is not needed but adding it will help with the computation
 		for (const auto& edge : network.edges) {
 			for (int k = 0; k < network.deliver_edges.size(); k++) {
 				auto u = edge.u, v = edge.v;
@@ -476,6 +469,7 @@ private:
 	}
 
 	void constraint9() {
+		// This is the constraint (13) in the Corberan 2018 paper
 		for (const auto& edge : network.deliver_edges) {
 			for (int k = 0; k < network.deliver_edges.size(); k++) {
 				auto u = edge.u, v = edge.v;
@@ -488,12 +482,13 @@ private:
 				expr -= f[k];
 				expr1 -= f[k];
 				model.add(IloRange(env, -IloInfinity, expr, -lower_bound_f[k]));
-				model.add(IloRange(env, -upper_bound_f[k], expr, IloInfinity));
+				model.add(IloRange(env, -upper_bound_f[k], expr1, IloInfinity));
 			}
 		}
 	}
 
 	void constraint10() {
+		// This is the constraint (14) in the Corberan 2018 paper
 		for (const auto& edge : network.edges) {
 			for (int k = 0; k < network.deliver_edges.size() - 1; k++) {
 				auto u = edge.u, v = edge.v;
@@ -512,6 +507,7 @@ private:
 	}
 
 	void constraint11() {
+		// Constraint (15) in the orginal paper
 		for (int k = 0; k < network.deliver_edges.size(); k++) {
 			IloExpr expr(env);
 			for (const auto& edge : network.deliver_edges) {
@@ -519,6 +515,23 @@ private:
 			}
 			expr -= f[k];
 			model.add(IloRange(env, 0, expr, 0));
+		}
+	}
+
+	void constraint12() {
+		// For every period, there is no cycle when deadheading
+		for (int k = 0; k < network.deliver_edges.size(); k++) {
+			for (int i = 0; i < network.vertices.size(); i++) {
+				IloExpr expr(env);
+				auto v = network.vertices[i];
+				for (const auto& edge : network.edges) {
+					if (edge.v == v || edge.u == v) {
+						expr += x[edge.v][edge.u][k];
+						expr += x[edge.u][edge.v][k];
+					}
+				}
+				model.add(IloRange(env, -IloInfinity, expr, 2));
+			}
 		}
 	}
 };

@@ -184,15 +184,43 @@ struct Solution {
     Network network;
     double cost;
 
-    void print() const {
+    void print(bool print_deadheads = false) const {
         std::cout << "Solution:\n";
         std::cout << "Edges:\n";
+        if (print_deadheads) {
+            Vertex nxt = direction[0] ? edges[0].v : edges[0].u;
+            if (nxt.id != network.depot.id) {
+                const auto key = std::make_pair(network.depot.id, nxt.id);
+                if (network.shortest_paths.find(key) != network.shortest_paths.end()) {
+                    std::cout << key.first << " -> " << key.second << "\n";
+                    for (const auto& edge : network.shortest_paths.at(key)) {
+                        std::cout << "  " << edge.toString() << " (deadheaded)\n";
+                    }
+                }
+            }
+        }
         for (size_t i = 0; i < edges.size(); ++i) {
-            std::cout << "  " << edges[i].toString();
+            std::cout << "Serving:\n  " << edges[i].toString();
             if (i < direction.size()) {
                 std::cout << (direction[i] ? " (reversed)" : " (forward)");
             }
             std::cout << "\n";
+            if (print_deadheads) {
+                Vertex cur = direction[i] ? edges[i].u : edges[i].v;
+                Vertex nxt;
+                if (i + 1 < edges.size()) {
+                    nxt = direction[i + 1] ? edges[i + 1].v : edges[i + 1].u;
+                }
+                else {
+                    nxt = network.depot;
+                }
+                const auto key = std::make_pair(cur.id, nxt.id);
+                std::cout << key.first << " -> " << key.second << "\n";
+                if (network.shortest_paths.find(key) == network.shortest_paths.end()) {continue;}
+                for (const auto& edge : network.shortest_paths.at(key)) {
+                    std::cout << "  " << edge.toString() << " (deadheaded)\n";
+                }
+            }
         }
         std::cout << "Cost: " << cost << "\n";
     }

@@ -252,10 +252,11 @@ Solution reorder_edges(Network network, Solution solution) {
     std::map<Edge, bool> moved;
     std::map<Edge, bool> delivery_edges;
     for (int i = 0; i < solution.edges.size(); i++) {
+    	// checking the edge solution.edges[i]
         if (delivery_edges.count(solution.edges[i]) > 0) continue;
         Vertex next = solution.direction[i]? solution.edges[i].v : solution.edges[i].u;
         for (auto edge : network.shortest_paths[{cur.id, next.id}]) {
-            if (edge.load > 0.0) {
+            if (edge.load > 0.0 || (edge.u == edge.v && edge.u == network.depot)) {
                 // This is a delivery edge
                 if (delivery_edges.count(edge) == 0) {
                     delivery_edges[edge] = true;
@@ -263,9 +264,16 @@ Solution reorder_edges(Network network, Solution solution) {
                 }
             }
         }
-        perm.push_back(solution.edges[i]);
-        delivery_edges[perm.back()] = true;
-        cur = solution.direction[i]? perm.back().u : perm.back().v;
+    	if (!perm.empty() && perm.back() == solution.edges[i]) {
+			// If we travel to this edge
+    		std::cout << "A special case!" << std::endl;
+    		cur = solution.direction[i]? perm.back().v : perm.back().u;
+    	}
+    	else {
+    		perm.push_back(solution.edges[i]);
+    		delivery_edges[perm.back()] = true;
+    		cur = solution.direction[i]? perm.back().u : perm.back().v;
+    	}
         if (perm.size() == solution.edges.size()) break;
     }
     my_assert(perm.size() == solution.edges.size(), "Permutation and solution size must be the same");
@@ -412,6 +420,23 @@ Solution find_best_reversal(Network network, Solution solution) {
 		}
 	}
 
+	return best_solution;
+}
+
+Solution permutation_search(const Network &network) {
+	auto edges = network.deliver_edges;
+	std::sort(edges.begin(), edges.end());
+	double best_cost = std::numeric_limits<double>::max();
+	Solution best_solution;
+
+	// Loop through all permutations
+	do {
+		auto c = cost_tour(network, edges);
+		if (c.cost < best_cost) {
+			best_cost = c.cost;
+			best_solution = c;
+		}
+	} while (std::next_permutation(edges.begin(), edges.end()));
 	return best_solution;
 }
 

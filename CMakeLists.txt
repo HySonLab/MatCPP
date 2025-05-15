@@ -7,7 +7,7 @@ project(MatheuristicsCPPLC)
 add_compile_definitions(IL_STD)
 
 # Add include directory for headers
-include_directories(${PROJECT_SOURCE_DIR}/include)
+include_directories(${PROJECT_SOURCE_DIR}/mald)
 include_directories("C:\\Program Files\\IBM\\ILOG\\CPLEX_Studio1210\\cplex\\include")
 include_directories("C:\\Program Files\\IBM\\ILOG\\CPLEX_Studio1210\\concert\\include")
 
